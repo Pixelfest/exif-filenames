@@ -1,0 +1,463 @@
+<Window x:Class="ExifFilenames.ContextMenu.Views.ProgressWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:ExifFilenames.ContextMenu.ViewModels"
+        mc:Ignorable="d"
+        Title="Maak verkleinde versies"
+        Height="470" Width="600"
+        MinHeight="470" MinWidth="600"
+        WindowStartupLocation="CenterScreen"
+        Background="#F8FAFC"
+        FontFamily="Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, sans-serif"
+        Icon="/Assets/app.ico">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="BorderBrush" Value="#E2E8F0" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="12,10" />
+        </Style>
+
+        <Style x:Key="NumberCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="BorderBrush" Value="#E2E8F0" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="Margin" Value="4,0" />
+        </Style>
+
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#2563EB" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="16,8" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#1D4ED8" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#E2E8F0" />
+            <Setter Property="Foreground" Value="#334155" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Padding" Value="16,8" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#CBD5E1" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Window.TaskbarItemInfo>
+        <TaskbarItemInfo x:Name="TaskbarInfo" />
+    </Window.TaskbarItemInfo>
+
+    <Grid Margin="20,16">
+        <Grid.RowDefinitions>
+            <!-- Header -->
+            <RowDefinition Height="Auto" />
+            <!-- Step Indicators -->
+            <RowDefinition Height="Auto" />
+            <!-- Main Content Area -->
+            <RowDefinition Height="*" />
+            <!-- Footer Action Bar -->
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- HEADER -->
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Image Grid.Column="0" Source="/Assets/app.ico" Width="36" Height="36" Margin="0,0,12,0" VerticalAlignment="Center" />
+
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="Maak verkleinde versies" FontSize="18" FontWeight="Bold" Foreground="#0F172A" />
+                <TextBlock Text="{Binding SourceFolderName, StringFormat='Bronmap: {0}'}" FontSize="12" Foreground="#64748B" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </Grid>
+
+        <!-- STEP INDICATORS (Stappen 1, 2, 3) -->
+        <Border Grid.Row="1" Style="{StaticResource CardStyle}" Margin="0,0,0,16">
+            <Grid HorizontalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="50" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="50" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Step 1 Badge -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="26" Height="26" CornerRadius="13" Margin="0,0,8,0">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="#E2E8F0" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsStep1Active}" Value="True">
+                                        <Setter Property="Background" Value="#2563EB" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsStep1Completed}" Value="True">
+                                        <Setter Property="Background" Value="#10B981" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock FontWeight="Bold" FontSize="12"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="1" />
+                                    <Setter Property="Foreground" Value="#64748B" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsStep1Active}" Value="True">
+                                            <Setter Property="Foreground" Value="#FFFFFF" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsStep1Completed}" Value="True">
+                                            <Setter Property="Foreground" Value="#FFFFFF" />
+                                            <Setter Property="Text" Value="✓" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Border>
+                    <TextBlock Text="1. Scannen" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold" Foreground="#334155" />
+                </StackPanel>
+
+                <!-- Connector 1-2 -->
+                <Rectangle Grid.Column="1" Height="2" HorizontalAlignment="Stretch" Margin="8,0">
+                    <Rectangle.Style>
+                        <Style TargetType="Rectangle">
+                            <Setter Property="Fill" Value="#CBD5E1" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsStep1Completed}" Value="True">
+                                    <Setter Property="Fill" Value="#10B981" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Rectangle.Style>
+                </Rectangle>
+
+                <!-- Step 2 Badge -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="26" Height="26" CornerRadius="13" Margin="0,0,8,0">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="#E2E8F0" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsStep2Active}" Value="True">
+                                        <Setter Property="Background" Value="#2563EB" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsStep2Completed}" Value="True">
+                                        <Setter Property="Background" Value="#10B981" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock FontWeight="Bold" FontSize="12"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="2" />
+                                    <Setter Property="Foreground" Value="#64748B" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsStep2Active}" Value="True">
+                                            <Setter Property="Foreground" Value="#FFFFFF" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsStep2Completed}" Value="True">
+                                            <Setter Property="Foreground" Value="#FFFFFF" />
+                                            <Setter Property="Text" Value="✓" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Border>
+                    <TextBlock Text="2. Ordenen" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold" Foreground="#334155" />
+                </StackPanel>
+
+                <!-- Connector 2-3 -->
+                <Rectangle Grid.Column="3" Height="2" HorizontalAlignment="Stretch" Margin="8,0">
+                    <Rectangle.Style>
+                        <Style TargetType="Rectangle">
+                            <Setter Property="Fill" Value="#CBD5E1" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsStep2Completed}" Value="True">
+                                    <Setter Property="Fill" Value="#10B981" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Rectangle.Style>
+                </Rectangle>
+
+                <!-- Step 3 Badge -->
+                <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="26" Height="26" CornerRadius="13" Margin="0,0,8,0">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="#E2E8F0" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsStep3Active}" Value="True">
+                                        <Setter Property="Background" Value="#2563EB" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsStep3Completed}" Value="True">
+                                        <Setter Property="Background" Value="#10B981" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock FontWeight="Bold" FontSize="12"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="3" />
+                                    <Setter Property="Foreground" Value="#64748B" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsStep3Active}" Value="True">
+                                            <Setter Property="Foreground" Value="#FFFFFF" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding IsStep3Completed}" Value="True">
+                                            <Setter Property="Foreground" Value="#FFFFFF" />
+                                            <Setter Property="Text" Value="✓" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Border>
+                    <TextBlock Text="3. Verkleinen" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold" Foreground="#334155" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- MAIN BODY: Active Processing View OR Finished Summary View -->
+        <Grid Grid.Row="2">
+            <!-- ACTIVE PROGRESS VIEW -->
+            <Border>
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource CardStyle}">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsFinished}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding HasFailed}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+
+                <StackPanel VerticalAlignment="Center" Margin="10,0">
+                    <TextBlock Text="{Binding StepTitle}" FontSize="15" FontWeight="Bold" Foreground="#0F172A" Margin="0,0,0,4" />
+                    <TextBlock Text="{Binding StepDetail}" FontSize="13" Foreground="#64748B" Margin="0,0,0,14" />
+
+                    <!-- Progress Bar -->
+                    <ProgressBar Height="14" Value="{Binding StepProgressPercent, Mode=OneWay}"
+                                 Minimum="0" Maximum="100" Margin="0,0,0,18"
+                                 Foreground="#2563EB" Background="#E2E8F0" BorderThickness="0" />
+
+                    <!-- Number Cards Grid (Cijfers) -->
+                    <UniformGrid Columns="4" Margin="-4,0">
+                        <!-- Card 1: Verwerkt -->
+                        <Border Style="{StaticResource NumberCardStyle}">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="{Binding ProcessedFiles}" FontSize="20" FontWeight="Bold" Foreground="#2563EB" HorizontalAlignment="Center" />
+                                <TextBlock Text="Verwerkt" FontSize="11" Foreground="#64748B" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Card 2: Resterend -->
+                        <Border Style="{StaticResource NumberCardStyle}">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="{Binding RemainingFiles}" FontSize="20" FontWeight="Bold" Foreground="#0F172A" HorizontalAlignment="Center" />
+                                <TextBlock Text="Resterend" FontSize="11" Foreground="#64748B" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Card 3: Totaal -->
+                        <Border Style="{StaticResource NumberCardStyle}">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="{Binding TotalFiles}" FontSize="20" FontWeight="Bold" Foreground="#475569" HorizontalAlignment="Center" />
+                                <TextBlock Text="Totaal" FontSize="11" Foreground="#64748B" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Card 4: Overgeslagen -->
+                        <Border Style="{StaticResource NumberCardStyle}">
+                            <StackPanel HorizontalAlignment="Center">
+                                <TextBlock Text="{Binding SkippedFiles}" FontSize="20" FontWeight="Bold" Foreground="#D97706" HorizontalAlignment="Center" />
+                                <TextBlock Text="Overgeslagen" FontSize="11" Foreground="#64748B" HorizontalAlignment="Center" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+
+            <!-- FINISHED SUMMARY VIEW (Cijfers & Overzicht) -->
+            <Border>
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource CardStyle}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsFinished}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+
+                <StackPanel VerticalAlignment="Center" Margin="12,0">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <Border Width="32" Height="32" CornerRadius="16" Background="#DCFCE7" Margin="0,0,10,0">
+                            <TextBlock Text="✓" FontSize="18" FontWeight="Bold" Foreground="#15803D" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Klaar!" FontSize="16" FontWeight="Bold" Foreground="#15803D" />
+                            <TextBlock Text="De verkleinde versies zijn succesvol aangemaakt." FontSize="13" Foreground="#475569" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Summary in Numbers -->
+                    <Border Background="#F1F5F9" CornerRadius="6" Padding="14,10" Margin="0,0,0,12">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Totaal gescand:" FontSize="13" Foreground="#334155" Margin="0,2" />
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding TotalFiles, StringFormat='{}{0} bestanden'}" FontSize="13" FontWeight="SemiBold" Foreground="#0F172A" Margin="0,2" />
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Succesvol verkleind en opgeslagen:" FontSize="13" Foreground="#334155" Margin="0,2" />
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ProcessedFiles, StringFormat='{}{0} foto\'s'}" FontSize="13" FontWeight="Bold" Foreground="#15803D" Margin="0,2" />
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Overgeslagen (geen foto's of te klein):" FontSize="13" Foreground="#334155" Margin="0,2" />
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding SkippedFiles, StringFormat='{}{0} bestanden'}" FontSize="13" FontWeight="SemiBold" Foreground="#D97706" Margin="0,2" />
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Text="Opgeslagen in doelmap:" FontSize="12" Foreground="#64748B" Margin="0,0,0,2" />
+                    <TextBlock Text="{Binding DestinationFolderPath}" FontSize="12" FontWeight="SemiBold" Foreground="#1E293B" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Border>
+
+            <!-- ERROR OR CANCELED VIEW -->
+            <Border>
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource CardStyle}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasFailed}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+
+                <StackPanel VerticalAlignment="Center" Margin="12,0">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                        <Border Width="32" Height="32" CornerRadius="16" Background="#FEE2E2" Margin="0,0,10,0">
+                            <TextBlock Text="!" FontSize="18" FontWeight="Bold" Foreground="#B91C1C" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Niet voltooid" FontSize="16" FontWeight="Bold" Foreground="#B91C1C" />
+                            <TextBlock Text="{Binding ErrorMessage}" FontSize="13" Foreground="#475569" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- FOOTER ACTION BAR -->
+        <Grid Grid.Row="3" Margin="0,16,0,0">
+            <!-- While Running -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                        Visibility="{Binding IsRunning, Converter={StaticResource BoolToVis}}">
+                <Button Content="Annuleren" Style="{StaticResource SecondaryButtonStyle}"
+                        Click="OnCancelClick" />
+            </StackPanel>
+
+            <!-- When Finished -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsFinished}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+                <Button Content="Map openen" Style="{StaticResource PrimaryButtonStyle}"
+                        Margin="0,0,8,0" Click="OnOpenFolderClick" />
+                <Button Content="Sluiten" Style="{StaticResource SecondaryButtonStyle}"
+                        Click="OnCloseClick" />
+            </StackPanel>
+
+            <!-- When Failed / Canceled -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasFailed}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+                <Button Content="Sluiten" Style="{StaticResource SecondaryButtonStyle}"
+                        Click="OnCloseClick" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>
