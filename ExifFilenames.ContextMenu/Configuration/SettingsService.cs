@@ -63,14 +63,10 @@ public static class SettingsService
                 settings.JpegQuality = PipelineOptions.DefaultJpegQuality;
             }
 
-            if (string.IsNullOrWhiteSpace(settings.TargetFolderSuffix))
-            {
-                settings.TargetFolderSuffix = " - Verkleind";
-            }
-            else if (!settings.TargetFolderSuffix.StartsWith(" ") && settings.TargetFolderSuffix.StartsWith("-"))
-            {
-                settings.TargetFolderSuffix = " " + settings.TargetFolderSuffix;
-            }
+            settings.TargetFolderSuffix = ContextMenuSettings.NormalizeSuffix(
+                settings.TargetFolderSuffix, ContextMenuSettings.DefaultTargetFolderSuffix);
+            settings.TargetFileSuffix = ContextMenuSettings.NormalizeSuffix(
+                settings.TargetFileSuffix, ContextMenuSettings.DefaultTargetFileSuffix);
 
             return settings;
         }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -6,6 +7,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using ExifFilenames.ContextMenu.Configuration;
+using ExifFilenames.Core.Imaging;
 using ExifFilenames.Core.Models;
 using ExifFilenames.Core.Pipeline;
 
@@ -14,6 +16,7 @@ namespace ExifFilenames.ContextMenu.ViewModels;
 public class ProgressViewModel : INotifyPropertyChanged
 {
     private readonly string _sourcePath;
+    private readonly IReadOnlyList<string>? _filePaths;
     private readonly ContextMenuSettings _settings;
     private CancellationTokenSource? _cts;
 
@@ -47,6 +50,38 @@ public class ProgressViewModel : INotifyPropertyChanged
         _sourcePath = Path.GetFullPath(sourcePath);
         _settings = settings;
     }
+
+    /// <summary>
+    /// File mode: makes a resized, metadata-free copy next to each selected file.
+    /// </summary>
+    public ProgressViewModel(IReadOnlyList<string> filePaths, ContextMenuSettings settings)
+    {
+        if (filePaths.Count == 0)
+            throw new ArgumentException("At least one file is required.", nameof(filePaths));
+
+        _filePaths = filePaths;
+        _sourcePath = Path.GetDirectoryName(Path.GetFullPath(filePaths[0])) ?? string.Empty;
+        _settings = settings;
+        _destinationDirectory = _sourcePath;
+        _stepTitle = "Foto's verkleinen en metadata verwijderen";
+        _stepDetail = $"0 van {filePaths.Count} foto's (0%)";
+        _totalFiles = filePaths.Count;
+        _remainingFiles = filePaths.Count;
+    }
+
+    public bool IsFileMode => _filePaths != null;
+    public bool ShowSteps => !IsFileMode;
+
+    public string SourceDescription => _filePaths switch
+    {
+        null => $"Bronmap: {SourceFolderName}",
+        { Count: 1 } => $"Bestand: {Path.GetFileName(_filePaths[0])}",
+        _ => $"{_filePaths.Count} geselecteerde bestanden in {SourceFolderName}"
+    };
+
+    public string SummaryTotalLabel => IsFileMode ? "Totaal geselecteerd:" : "Totaal gescand:";
+    public string SummarySkippedLabel => IsFileMode ? "Overgeslagen (geen ondersteunde foto's):" : "Overgeslagen (geen foto's of te klein):";
+    public string DestinationLabel => IsFileMode ? "Opgeslagen naast de originelen (zonder EXIF-gegevens):" : "Opgeslagen in doelmap:";
 
     public string SourceFolderName => Path.GetFileName(_sourcePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
     public string SourceFolderPath => _sourcePath;
@@ -186,33 +221,16 @@ public class ProgressViewModel : INotifyPropertyChanged
         _cts = new CancellationTokenSource();
         var cancellationToken = _cts.Token;
 
-        var options = new PipelineOptions
-        {
-            CopyFolder = true,
-            Recurse = true,
-            IsDryRun = false,
-            TargetFolderSuffix = _settings.TargetFolderSuffix,
-            MaxImageDimension = _settings.MaxImageDimension,
-            JpegQuality = _settings.JpegQuality
-        };
-
-        var context = new PipelineContext(_sourcePath, options);
-        DestinationFolderPath = context.DestinationDirectory;
-
-        var progress = new Progress<StepProgress>(HandleProgress);
-        var pipeline = PipelineBuilder.CreateContextMenu().Build();
-
         try
         {
-            await Task.Run(async () =>
-            {
-                await pipeline.ExecuteAsync(context, progress, cancellationToken);
-            }, cancellationToken);
+            var (total, processed, skipped, failed) = IsFileMode
+                ? await RunFilesAsync(cancellationToken)
+                : await RunFolderAsync(cancellationToken);
 
-            TotalFiles = context.TotalCount;
-            ProcessedFiles = context.ProcessedCount;
-            SkippedFiles = context.SkippedCount;
-            FailedFiles = context.FailedCount;
+            TotalFiles = total;
+            ProcessedFiles = processed;
+            SkippedFiles = skipped;
+            FailedFiles = failed;
             RemainingFiles = 0;
 
             IsStep1Completed = true;
@@ -246,6 +264,46 @@ public class ProgressViewModel : INotifyPropertyChanged
         }
     }
 
+    private async Task<(int Total, int Processed, int Skipped, int Failed)> RunFolderAsync(CancellationToken cancellationToken)
+    {
+        var options = new PipelineOptions
+        {
+            CopyFolder = true,
+            Recurse = true,
+            IsDryRun = false,
+            TargetFolderSuffix = _settings.TargetFolderSuffix,
+            MaxImageDimension = _settings.MaxImageDimension,
+            JpegQuality = _settings.JpegQuality
+        };
+
+        var context = new PipelineContext(_sourcePath, options);
+        DestinationFolderPath = context.DestinationDirectory;
+
+        var progress = new Progress<StepProgress>(HandleProgress);
+        var pipeline = PipelineBuilder.CreateContextMenu().Build();
+
+        await Task.Run(async () =>
+        {
+            await pipeline.ExecuteAsync(context, progress, cancellationToken);
+        }, cancellationToken);
+
+        return (context.TotalCount, context.ProcessedCount, context.SkippedCount, context.FailedCount);
+    }
+
+    private async Task<(int Total, int Processed, int Skipped, int Failed)> RunFilesAsync(CancellationToken cancellationToken)
+    {
+        var resizer = new SelectedFilesResizer(_settings.MaxImageDimension, _settings.JpegQuality, _settings.TargetFileSuffix);
+        var progress = new Progress<StepProgress>(HandleProgress);
+
+        var files = await Task.Run(() => resizer.ExecuteAsync(_filePaths!, progress, cancellationToken), cancellationToken);
+
+        return (
+            files.Count,
+            files.Count(f => f.Status == FileStatus.Processed),
+            files.Count(f => f.Status == FileStatus.Skipped),
+            files.Count(f => f.Status == FileStatus.Failed));
+    }
+
     public void Cancel()
     {
         if (_cts != null && !_cts.IsCancellationRequested)
@@ -268,7 +326,21 @@ public class ProgressViewModel : INotifyPropertyChanged
 
     private void HandleProgress(StepProgress p)
     {
-        if (p.StepName != null)
+        if (p.StepName == SelectedFilesResizer.StepName)
+        {
+            if (p.CurrentIndex.HasValue && p.TotalCount.HasValue)
+            {
+                int curr = p.CurrentIndex.Value;
+                int tot = p.TotalCount.Value;
+                ProcessedFiles = curr;
+                RemainingFiles = Math.Max(0, tot - curr);
+
+                StepProgressPercent = (int)Math.Round((double)curr / Math.Max(1, tot) * 100);
+                StepDetail = $"{curr} van {tot} foto's ({StepProgressPercent}%)";
+                OverallProgressPercent = StepProgressPercent;
+            }
+        }
+        else if (p.StepName != null)
         {
             if (p.StepName.Contains("Prepare", StringComparison.OrdinalIgnoreCase))
             {

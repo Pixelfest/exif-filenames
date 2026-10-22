@@ -183,6 +183,15 @@
                         <TextBlock Grid.Column="0" Text="Achtervoegsel doelmap:" FontSize="13" Foreground="#334155" VerticalAlignment="Center" />
                         <TextBox x:Name="TxtSuffix" Grid.Column="1" Height="28" VerticalContentAlignment="Center" FontSize="13" />
                     </Grid>
+
+                    <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="130" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Achtervoegsel losse bestanden:" FontSize="13" Foreground="#334155" VerticalAlignment="Center" />
+                        <TextBox x:Name="TxtFileSuffix" Grid.Column="1" Height="28" VerticalContentAlignment="Center" FontSize="13" />
+                    </Grid>
                 </StackPanel>
             </Border>
         </StackPanel>

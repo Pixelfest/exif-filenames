@@ -62,9 +62,27 @@ public class ContextMenuIntegrationTests
                 Assert.Equal($"\"{dummyExe}\" \"%1\"", cmdKey.GetValue(""));
             }
 
+            // Verify image file entries (one or more selected files)
+            foreach (var extension in ContextMenuManager.ImageExtensions)
+            {
+                using var fileKey = Registry.CurrentUser.OpenSubKey(ContextMenuManager.GetFileShellKey(extension));
+                Assert.NotNull(fileKey);
+                Assert.Equal("Maak verkleinde versies", fileKey.GetValue(""));
+                Assert.Equal("Player", fileKey.GetValue("MultiSelectModel"));
+
+                using var cmdKey = fileKey.OpenSubKey("command");
+                Assert.NotNull(cmdKey);
+                Assert.Equal($"\"{dummyExe}\" \"%1\"", cmdKey.GetValue(""));
+            }
+
             // Uninstall
             ContextMenuManager.Uninstall();
             Assert.False(ContextMenuManager.IsInstalled());
+            foreach (var extension in ContextMenuManager.ImageExtensions)
+            {
+                using var fileKey = Registry.CurrentUser.OpenSubKey(ContextMenuManager.GetFileShellKey(extension));
+                Assert.Null(fileKey);
+            }
         }
         finally
         {
@@ -189,10 +207,12 @@ public class ContextMenuIntegrationTests
                 var txtDimension = window.FindName("TxtDimension");
                 var txtQuality = window.FindName("TxtQuality");
                 var txtSuffix = window.FindName("TxtSuffix");
+                var txtFileSuffix = window.FindName("TxtFileSuffix");
 
                 Assert.NotNull(txtDimension);
                 Assert.NotNull(txtQuality);
                 Assert.NotNull(txtSuffix);
+                Assert.NotNull(txtFileSuffix);
             }
             catch (Exception ex)
             {
