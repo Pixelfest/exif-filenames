@@ -3,10 +3,9 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using ExifFilenames.Core.Imaging;
 using ExifFilenames.Core.Models;
 using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Jpeg;
-using SixLabors.ImageSharp.Processing;
 
 namespace ExifFilenames.Core.Pipeline.Steps;
 
@@ -132,76 +131,49 @@ public class ImageResizeStep : IPipelineStep
             string? tempFile = null;
             try
             {
-                using (var image = await Image.LoadAsync(file.CurrentPath, cancellationToken))
+                var currentDir = Path.GetDirectoryName(file.CurrentPath) ?? context.DestinationDirectory;
+                tempFile = Path.Combine(currentDir, $".tmp_{Guid.NewGuid():N}.jpg");
+
+                var result = await JpegResizer.ResizeToJpegAsync(
+                    file.CurrentPath, tempFile, maxDimension, jpegQuality, stripMetadata: false, cancellationToken);
+
+                var targetJpgPath = Path.ChangeExtension(file.CurrentPath, ".jpg");
+
+                if (string.Equals(targetJpgPath, file.CurrentPath, StringComparison.OrdinalIgnoreCase))
                 {
-                    // Normalize rotation based on EXIF orientation tag so dimensions match physical viewing
-                    image.Mutate(x => x.AutoOrient());
-
-                    int origW = image.Width;
-                    int origH = image.Height;
-                    bool needsResize = origW > maxDimension || origH > maxDimension;
-
-                    if (needsResize)
+                    File.Move(tempFile, file.CurrentPath, overwrite: true);
+                    tempFile = null;
+                }
+                else
+                {
+                    File.Move(tempFile, targetJpgPath, overwrite: true);
+                    tempFile = null;
+                    if (File.Exists(file.CurrentPath))
                     {
-                        image.Mutate(x => x.Resize(new ResizeOptions
-                        {
-                            Size = new Size(maxDimension, maxDimension),
-                            Mode = ResizeMode.Max,
-                            Sampler = KnownResamplers.Lanczos3
-                        }));
+                        try { File.Delete(file.CurrentPath); } catch { }
                     }
+                    file.CurrentPath = targetJpgPath;
+                    file.TargetPath = targetJpgPath;
+                }
 
-                    int finalW = image.Width;
-                    int finalH = image.Height;
+                file.Properties["Resized"] = result.Resized;
+                file.Properties["ImageWidth"] = result.FinalWidth;
+                file.Properties["ImageHeight"] = result.FinalHeight;
+                file.Properties["JpegQuality"] = jpegQuality;
 
-                    var encoder = new JpegEncoder
-                    {
-                        Quality = jpegQuality
-                    };
-
-                    var currentDir = Path.GetDirectoryName(file.CurrentPath) ?? context.DestinationDirectory;
-                    tempFile = Path.Combine(currentDir, $".tmp_{Guid.NewGuid():N}.jpg");
-
-                    await image.SaveAsJpegAsync(tempFile, encoder, cancellationToken);
-
-                    var targetJpgPath = Path.ChangeExtension(file.CurrentPath, ".jpg");
-
-                    if (string.Equals(targetJpgPath, file.CurrentPath, StringComparison.OrdinalIgnoreCase))
-                    {
-                        File.Move(tempFile, file.CurrentPath, overwrite: true);
-                        tempFile = null;
-                    }
-                    else
-                    {
-                        File.Move(tempFile, targetJpgPath, overwrite: true);
-                        tempFile = null;
-                        if (File.Exists(file.CurrentPath))
-                        {
-                            try { File.Delete(file.CurrentPath); } catch { }
-                        }
-                        file.CurrentPath = targetJpgPath;
-                        file.TargetPath = targetJpgPath;
-                    }
-
-                    file.Properties["Resized"] = needsResize;
-                    file.Properties["ImageWidth"] = finalW;
-                    file.Properties["ImageHeight"] = finalH;
-                    file.Properties["JpegQuality"] = jpegQuality;
-
-                    if (needsResize)
-                    {
-                        progress?.Report(new StepProgress(
-                            $"[RESIZED] {file.CurrentFileName} ({origW}x{origH} -> {finalW}x{finalH} @ {jpegQuality}% JPG)",
-                            ProgressSeverity.Success,
-                            Name, index, total));
-                    }
-                    else
-                    {
-                        progress?.Report(new StepProgress(
-                            $"[SAVED] {file.CurrentFileName} ({origW}x{origH} @ {jpegQuality}% JPG)",
-                            ProgressSeverity.Success,
-                            Name, index, total));
-                    }
+                if (result.Resized)
+                {
+                    progress?.Report(new StepProgress(
+                        $"[RESIZED] {file.CurrentFileName} ({result.OriginalWidth}x{result.OriginalHeight} -> {result.FinalWidth}x{result.FinalHeight} @ {jpegQuality}% JPG)",
+                        ProgressSeverity.Success,
+                        Name, index, total));
+                }
+                else
+                {
+                    progress?.Report(new StepProgress(
+                        $"[SAVED] {file.CurrentFileName} ({result.OriginalWidth}x{result.OriginalHeight} @ {jpegQuality}% JPG)",
+                        ProgressSeverity.Success,
+                        Name, index, total));
                 }
             }
             catch (Exception ex)

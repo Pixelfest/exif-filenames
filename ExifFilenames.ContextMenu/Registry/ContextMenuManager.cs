@@ -17,6 +17,14 @@ public static class ContextMenuManager
     private const string DirectoryShellKey = @"Software\Classes\Directory\shell\" + MenuKeyName;
     private const string DirectoryBackgroundShellKey = @"Software\Classes\Directory\Background\shell\" + MenuKeyName;
 
+    /// <summary>
+    /// Image extensions that get a menu entry when one or more files are selected.
+    /// </summary>
+    public static readonly string[] ImageExtensions = { ".jpg", ".jpeg", ".png" };
+
+    public static string GetFileShellKey(string extension) =>
+        $@"Software\Classes\SystemFileAssociations\{extension}\shell\{MenuKeyName}";
+
     private const string LegacyDirectoryShellKey = @"Software\Classes\Directory\shell\" + LegacyMenuKeyName;
     private const string LegacyDirectoryBackgroundShellKey = @"Software\Classes\Directory\Background\shell\" + LegacyMenuKeyName;
 
@@ -33,7 +41,7 @@ public static class ContextMenuManager
     }
 
     /// <summary>
-    /// Registreert het contextmenu voor mappen en achtergrond van mappen.
+    /// Registreert het contextmenu voor mappen, achtergrond van mappen en afbeeldingsbestanden.
     /// </summary>
     public static void Install(string? targetExecutablePath = null)
     {
@@ -87,6 +95,20 @@ public static class ContextMenuManager
             using var cmdKey = bgKey.CreateSubKey("command");
             cmdKey.SetValue("", $"\"{exePath}\" \"%V\"");
         }
+
+        // 3. Registreren voor afbeeldingsbestanden (één of meer geselecteerde bestanden).
+        // Verkenner start per geselecteerd bestand een eigen proces; de app bundelt die tot één venster.
+        // MultiSelectModel=Player houdt het menu zichtbaar bij meer dan 15 geselecteerde bestanden.
+        foreach (var extension in ImageExtensions)
+        {
+            using var fileKey = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(GetFileShellKey(extension));
+            fileKey.SetValue("", MenuDisplayName);
+            fileKey.SetValue("Icon", iconValue);
+            fileKey.SetValue("MultiSelectModel", "Player");
+
+            using var cmdKey = fileKey.CreateSubKey("command");
+            cmdKey.SetValue("", $"\"{exePath}\" \"%1\"");
+        }
     }
 
     /// <summary>
@@ -107,6 +129,15 @@ public static class ContextMenuManager
             Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(DirectoryBackgroundShellKey, throwOnMissingSubKey: false);
         }
         catch { }
+
+        foreach (var extension in ImageExtensions)
+        {
+            try
+            {
+                Microsoft.Win32.Registry.CurrentUser.DeleteSubKeyTree(GetFileShellKey(extension), throwOnMissingSubKey: false);
+            }
+            catch { }
+        }
     }
 
     private static void UninstallLegacy()

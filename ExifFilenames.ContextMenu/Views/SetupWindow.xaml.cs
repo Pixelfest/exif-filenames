@@ -23,6 +23,7 @@ public partial class SetupWindow : Window
         TxtDimension.Text = _settings.MaxImageDimension.ToString();
         TxtQuality.Text = _settings.JpegQuality.ToString();
         TxtSuffix.Text = _settings.TargetFolderSuffix;
+        TxtFileSuffix.Text = _settings.TargetFileSuffix;
     }
 
     private void RefreshStatus()
@@ -106,19 +107,13 @@ public partial class SetupWindow : Window
             return;
         }
 
-        var suffix = TxtSuffix.Text.TrimEnd();
-        if (string.IsNullOrWhiteSpace(suffix))
-        {
-            suffix = " - Verkleind";
-        }
-        else if (!suffix.StartsWith(" ") && suffix.StartsWith("-"))
-        {
-            suffix = " " + suffix;
-        }
+        var suffix = ContextMenuSettings.NormalizeSuffix(TxtSuffix.Text, ContextMenuSettings.DefaultTargetFolderSuffix);
+        var fileSuffix = ContextMenuSettings.NormalizeSuffix(TxtFileSuffix.Text, ContextMenuSettings.DefaultTargetFileSuffix);
 
         _settings.MaxImageDimension = dimension;
         _settings.JpegQuality = quality;
         _settings.TargetFolderSuffix = suffix;
+        _settings.TargetFileSuffix = fileSuffix;
 
         try
         {
